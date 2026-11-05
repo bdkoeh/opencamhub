@@ -1,0 +1,8 @@
+# Build output and downloaded dependencies
+out/
+third_party/
+
+# Editors
+.vs/
+.vscode/
+*.user
