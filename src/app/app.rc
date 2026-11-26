@@ -1,5 +1,7 @@
 #include <winres.h>
 
+1 ICON "OpenCamHub.ico"
+
 CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "app.manifest"
 
 VS_VERSION_INFO VERSIONINFO

@@ -23,6 +23,9 @@ pick in Zoom, Teams, Meet, OBS, Discord or your browser.
 - **Background blur**: [Robust Video Matting](https://github.com/PeterL1n/RobustVideoMatting) running
   on your GPU through DirectML (any DirectX 12 GPU, so NVIDIA, AMD and Intel). It takes about 7 ms
   a frame on an RTX-class card and keeps 1080p60.
+- **Background image**: In **Background**, select **Choose image** and pick a JPEG, PNG or BMP.
+  OpenCamHub keeps a local copy and centre-crops it to fill the frame behind you. Use **Blur** or
+  **Image** to switch effects, or turn the active effect off to show your room.
 - **Mirror** the image.
 - **Live preview** in the settings window, even while another app is using the camera.
 - **Light and dark** themes that follow Windows, with sharp rendering at any display scale.
@@ -89,7 +92,7 @@ powershell -ExecutionPolicy Bypass -File .\uninstall.ps1
 
 ```
 Facecam MK.2 ──► Windows Frame Server ──► vcam.dll (OpenCamHub virtual camera) ──► your app
-                                           mirror → background blur → LUT
+                                           mirror → background blur or image → LUT
 OpenCamHub.exe ── camera controls (UVC + Elgato extension units) ──► Facecam MK.2
                └─ writes settings.ini, which vcam.dll re-reads twice a second
 ```

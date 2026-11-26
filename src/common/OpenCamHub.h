@@ -69,9 +69,11 @@ inline bool WriteMirrorSetting(bool mirror)
 {
     return WritePrivateProfileStringW(L"video", L"mirror", mirror ? L"1" : L"0", OpenCamHubSettingsPath().c_str()) != FALSE;
 }
+inline std::wstring OpenCamHubImagePath() { return OpenCamHubDataDir() + L"\\background.image"; }
+
 // The background part of settings.ini:
 //   [background]
-//   mode=1        (0 = off, 1 = blur)
+//   mode=1        (0 = off, 1 = blur, 2 = image)
 //   strength=60   (0-100)
 struct BackgroundSettings
 {

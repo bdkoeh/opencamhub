@@ -21,12 +21,12 @@ New-Item -ItemType Directory -Force "$out\obj\vcam", "$out\obj\tools", "$out\obj
 $ortInc = "$root\third_party\ort\pkg\build\native\include"
 $common = '/nologo /std:c++20 /EHsc /O2 /MT /W3 /DUNICODE /D_UNICODE /DNOMINMAX' + " /I`"$ortInc`""
 $steps = @(
-    "cl $common /LD /Fo`"$out\obj\vcam\\`" `"$root\src\vcam\*.cpp`" `"$root\src\common\Effects.cpp`" `"$root\src\common\Matting.cpp`" `"$root\src\common\Background.cpp`" /Fe:`"$out\vcam.dll`" /link /DEF:`"$root\src\vcam\vcam.def`" mfplat.lib mf.lib mfuuid.lib mfsensorgroup.lib ole32.lib advapi32.lib"
+    "cl $common /LD /Fo`"$out\obj\vcam\\`" `"$root\src\vcam\*.cpp`" `"$root\src\common\Effects.cpp`" `"$root\src\common\BackgroundImage.cpp`" `"$root\src\common\Matting.cpp`" `"$root\src\common\Background.cpp`" /Fe:`"$out\vcam.dll`" /link /DEF:`"$root\src\vcam\vcam.def`" mfplat.lib mf.lib mfuuid.lib mfsensorgroup.lib ole32.lib advapi32.lib"
     "cl $common /Fo`"$out\obj\tools\\`" `"$root\src\tools\opencamhub-setup.cpp`" `"$root\src\vcam\Lut.cpp`" `"$root\src\common\Matting.cpp`" `"$root\src\common\Background.cpp`" /Fe:`"$out\opencamhub-setup.exe`" /link mfplat.lib mf.lib mfreadwrite.lib mfuuid.lib mfsensorgroup.lib ole32.lib"
 )
 if (Test-Path "$root\src\app") {
     $steps += "rc /nologo /fo `"$out\obj\app\app.res`" `"$root\src\app\app.rc`""
-    $steps += "cl $common /Fo`"$out\obj\app\\`" `"$root\src\app\*.cpp`" `"$root\src\vcam\Lut.cpp`" `"$root\src\common\Effects.cpp`" `"$root\src\common\Matting.cpp`" `"$root\src\common\Background.cpp`" `"$out\obj\app\app.res`" /Fe:`"$out\OpenCamHub.exe`" /link /SUBSYSTEM:WINDOWS mfplat.lib mf.lib mfreadwrite.lib mfuuid.lib ole32.lib oleaut32.lib strmiids.lib user32.lib gdi32.lib comctl32.lib comdlg32.lib shell32.lib advapi32.lib uxtheme.lib dwmapi.lib d2d1.lib dwrite.lib"
+    $steps += "cl $common /Fo`"$out\obj\app\\`" `"$root\src\app\*.cpp`" `"$root\src\vcam\Lut.cpp`" `"$root\src\common\Effects.cpp`" `"$root\src\common\BackgroundImage.cpp`" `"$root\src\common\Matting.cpp`" `"$root\src\common\Background.cpp`" `"$out\obj\app\app.res`" /Fe:`"$out\OpenCamHub.exe`" /link /SUBSYSTEM:WINDOWS mfplat.lib mf.lib mfreadwrite.lib mfuuid.lib ole32.lib oleaut32.lib strmiids.lib user32.lib gdi32.lib comctl32.lib comdlg32.lib shell32.lib advapi32.lib uxtheme.lib dwmapi.lib d2d1.lib dwrite.lib"
 }
 
 # Turn off the build tools' telemetry for this build.

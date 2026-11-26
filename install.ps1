@@ -63,6 +63,7 @@ if (-not (Test-Path "$data\settings.ini")) {
 if (Test-Path "$dest\OpenCamHub.exe") {
     $lnk = (New-Object -ComObject WScript.Shell).CreateShortcut("$env:ProgramData\Microsoft\Windows\Start Menu\Programs\OpenCamHub.lnk")
     $lnk.TargetPath = "$dest\OpenCamHub.exe"
+    $lnk.IconLocation = "$dest\OpenCamHub.exe,0"
     $lnk.Description = 'OpenCamHub camera settings'
     $lnk.Save()
 }

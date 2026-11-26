@@ -7,6 +7,7 @@
 #include <memory>
 #include "../vcam/Lut.h"
 #include "Background.h"
+#include "BackgroundImage.h"
 #include "Matting.h"
 
 class FrameEffects
@@ -22,13 +23,16 @@ private:
         std::shared_ptr<YuvLutTable> table;   // null = LUT off
         bool mirror = false;
         std::shared_ptr<Matting> matting;     // null = background effect off
+        std::shared_ptr<BackgroundImage> image;
+        FILETIME imageTime = {};
+        UINT width = 0, height = 0;
         int blurStrength = 60;
         FILETIME builtTime = {};
         YuvFormat builtFormat;
         bool built = false;
         std::atomic<bool> building{ false };
     };
-    void CheckSettings(YuvFormat format);
+    void CheckSettings(YuvFormat format, UINT width, UINT height);
     std::shared_ptr<Shared> m_s = std::make_shared<Shared>();
     unsigned m_frame = 0;
     BackgroundBlur m_blur;

@@ -16,6 +16,7 @@
 #include "Camera.h"
 #include "Preview.h"
 #include "../common/OpenCamHub.h"
+#include "../common/BackgroundImage.h"
 #include "../vcam/Lut.h"
 
 using Microsoft::WRL::ComPtr;
@@ -91,7 +92,7 @@ namespace
         int sel = -1;
         long intensity = 100;
     } g_lut;
-    struct BgUi { bool on = false; long strength = 60; } g_bg;
+    BackgroundSettings g_bg;
     bool g_mirror = false, g_previewOn = true, g_minimized = false;
     std::wstring g_status;
     bool g_statusIsError = false;
@@ -152,7 +153,7 @@ namespace
     // ------------------------------------------------------------------ widgets
 
     enum class W { Slider, Segment, Toggle, Button, TextButton, Chip };
-    enum class Act { None, Item, BgOn, BgStrength, LutIntensity, LutOn, LutChip, LutImport, LutFolder, Mirror, PreviewOn, ResetFraming, ResetPicture, Save };
+    enum class Act { None, Item, BgOn, BgImage, BgChoose, BgStrength, LutIntensity, LutOn, LutChip, LutImport, LutFolder, Mirror, PreviewOn, ResetFraming, ResetPicture, Save };
 
     struct Widget
     {
@@ -314,7 +315,9 @@ namespace
         y = framing.bottom + GAP;
         D2D1_RECT_F bgCard = D2D1::RectF(M, y, M + LEFT_W, y + HEAD + ROW + 10);
         g_cards.push_back({ bgCard, L"Background" });
-        HeaderToggle(bgCard, Act::BgOn, -1, L"Blur");
+        HeaderToggle(bgCard, Act::BgImage, -1, L"Image");
+        HeaderToggle(bgCard, Act::BgOn, -1, L"Blur", bgCard.right - g_widgets.back().rect.left + 18);
+        HeaderTextButton(bgCard, Act::BgChoose, L"Choose image...", g_widgets.back().rect.left - 18);
         {
             const float labelW = 112, valueW = 72;
             float ry = y + HEAD;
@@ -431,7 +434,7 @@ namespace
         case Act::Item: return CamItemEnabled(g_items[w.item]);
         case Act::ResetFraming: case Act::ResetPicture: case Act::Save: return g_cam.IsOpen();
         case Act::LutIntensity: return g_lut.on;
-        case Act::BgStrength: return g_bg.on;
+        case Act::BgStrength: return g_bg.mode == 1;
         default: return true;
         }
     }
@@ -442,7 +445,8 @@ namespace
         {
         case Act::Item: return g_items[w.item].value != 0;
         case Act::LutOn: return g_lut.on;
-        case Act::BgOn: return g_bg.on;
+        case Act::BgImage: return g_bg.mode == 2;
+        case Act::BgOn: return g_bg.mode == 1;
         case Act::Mirror: return g_mirror;
         case Act::PreviewOn: return g_previewOn;
         default: return false;
@@ -560,18 +564,14 @@ namespace
         for (size_t i = 0; i < files.size(); i++) if (_wcsicmp(files[i].c_str(), s.file.c_str()) == 0) g_lut.sel = (int)i;
         g_mirror = ReadMirrorSetting();
         BackgroundSettings bg = ReadBackgroundSettings();
-        g_bg.on = bg.mode == 1;
-        g_bg.strength = bg.strength;
+        g_bg = bg;
         if (relayout) Layout();
         Invalidate();
     }
 
     void SaveBackground()
     {
-        BackgroundSettings s;
-        s.mode = g_bg.on ? 1 : 0;
-        s.strength = (int)g_bg.strength;
-        if (!WriteBackgroundSettings(s)) SetStatus(L"Could not save the background setting.", true);
+        if (!WriteBackgroundSettings(g_bg)) SetStatus(L"Could not save the background setting.", true);
     }
 
     void SaveLut()
@@ -581,6 +581,46 @@ namespace
         if (g_lut.sel >= 0 && g_lut.sel < (int)g_lut.files.size()) s.file = g_lut.files[g_lut.sel];
         s.intensity = (int)g_lut.intensity;
         WriteLutSettings(s);
+    }
+
+    void ChooseImage()
+    {
+        wchar_t path[MAX_PATH] = {};
+        OPENFILENAMEW ofn = { sizeof(ofn) };
+        ofn.hwndOwner = g_wnd;
+        ofn.lpstrFilter = L"Background images (*.jpg, *.jpeg, *.png, *.bmp)\0*.jpg;*.jpeg;*.png;*.bmp\0";
+        ofn.lpstrFile = path;
+        ofn.nMaxFile = MAX_PATH;
+        ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+        if (!GetOpenFileNameW(&ofn)) return;
+
+        // Stage and validate the exact bytes the camera service will read.
+        wchar_t staged[MAX_PATH];
+        if (!GetTempFileNameW(OpenCamHubDataDir().c_str(), L"bg", 0, staged))
+        {
+            SetStatus(L"Could not save the image in the OpenCamHub data folder.", true);
+            return;
+        }
+        BackgroundImage check;
+        bool ready = CopyFileW(path, staged, FALSE) && check.Load(staged, 320, 180, {});
+        SetFileAttributesW(staged, FILE_ATTRIBUTE_NORMAL);
+        if (ready)
+        {
+            // CopyFile preserves source timestamps. Give each import its own reload signal.
+            HANDLE file = CreateFileW(staged, FILE_WRITE_ATTRIBUTES, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+            FILETIME now;
+            GetSystemTimeAsFileTime(&now);
+            ready = file != INVALID_HANDLE_VALUE && SetFileTime(file, nullptr, nullptr, &now);
+            if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+        }
+        if (!ready || !MoveFileExW(staged, OpenCamHubImagePath().c_str(), MOVEFILE_REPLACE_EXISTING))
+        {
+            DeleteFileW(staged);
+            SetStatus(L"Could not read or save that background image.", true);
+            return;
+        }
+        g_bg.mode = 2;
+        SaveBackground();
     }
 
     void ImportLut()
@@ -649,7 +689,13 @@ namespace
             break;
         }
         case Act::LutOn: g_lut.on = !g_lut.on; SaveLut(); break;
-        case Act::BgOn: g_bg.on = !g_bg.on; SaveBackground(); break;
+        case Act::BgOn: g_bg.mode = g_bg.mode == 1 ? 0 : 1; SaveBackground(); break;
+        case Act::BgImage:
+            if (g_bg.mode != 2 && GetFileAttributesW(OpenCamHubImagePath().c_str()) == INVALID_FILE_ATTRIBUTES)
+                ChooseImage();
+            else { g_bg.mode = g_bg.mode == 2 ? 0 : 2; SaveBackground(); }
+            break;
+        case Act::BgChoose: ChooseImage(); break;
         case Act::LutChip:
             g_lut.sel = w.chip;
             g_lut.on = true;
@@ -908,7 +954,7 @@ namespace
             bool en = true;
             if (l.item >= 0) en = CamItemEnabled(g_items[l.item]);
             if (l.act == Act::LutIntensity) en = g_lut.on;
-            if (l.act == Act::BgStrength) en = g_bg.on;
+            if (l.act == Act::BgStrength) en = g_bg.mode == 1;
             D2D1_COLOR_F color = l.value ? t.text : t.dim;
             IDWriteTextFormat* f = l.value ? g_fBodyRight.Get() : g_fBody.Get();
             if (l.act == Act::PreviewOn) { f = g_fBodyRight.Get(); color = g_view.GetMode() == Preview::Mode::Direct ? Hex(0xE8A33D) : t.dim; }
@@ -1315,6 +1361,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR cmdLine, int show)
     wc.hInstance = inst;
     wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
     wc.hIcon = LoadIconW(inst, MAKEINTRESOURCEW(1));
+    wc.hIconSm = (HICON)LoadImageW(inst, MAKEINTRESOURCEW(1), IMAGE_ICON,
+                                  GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_SHARED);
     wc.lpszClassName = L"OpenCamHubMain";
     RegisterClassExW(&wc);
 
